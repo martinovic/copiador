@@ -15,13 +15,30 @@ def application(environ, start_response):
     status = '200 OK'
 
     directorio = "/var/www/Portal2"
-    outputData = """<html><style>td {font-size: 75%;
+    outputData = """<html>
+        <style>td {font-size: 75%;
         font-family: Verdana, sans-serif; }</style>
-        <body><table><tr><th>md5</th><th>archivo<th></th></tr>"""
+        <body>
+            <div>
+                <input type='submit' value='Iniciar la copia' name='submit'>
+                <input type='reset' value='Cancelar la seleccion' name='reset'>
+            </div>
+            <table>
+                <tr>
+                    <th>md5</th>
+                    <th>archivo</th>
+                </tr>"""
     diccionarioFiles_or = [x for x in walkDirs(directorio).iteritems()]
     diccionarioFiles_or.sort(key=lambda x: x[1])
     for codigo, files in diccionarioFiles_or:
-        outputData += ("<tr><td>%30s</td><td>%s</td></tr>" % (codigo, files))
+        td = """<tr>
+                    <td>%30s</td>
+                    <td>
+                        <input type="checkbox"
+                        name="file[]" value="%s" > %s
+                    </td>
+                </tr>"""
+        outputData += (td % (codigo, files, files))
 
     outputData += "</table></body></html>"
     response_headers = [('Content-type', 'text/html'),
