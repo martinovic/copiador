@@ -112,6 +112,10 @@ def resultScreen(result):
             <article>"""
     outputData += stringResultado
     outputData += """
+            <br>
+            <button onclick='javascript:window.location = "/copiador"'>
+                REGRESAR AL MENU PRICIPAL
+            </button>
             </article>
             <footer>
                 <center>
