@@ -1,10 +1,12 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 import paramiko
 import sys
 sys.path.append('/var/www/copiador2')
 from scp import SCPClient
 import templatesHtml
-from cgi import parse_qs, escape
+from cgi import parse_qs
 
 """
 Copiador de archivos para entornos
@@ -84,6 +86,7 @@ def createSSHClient(server, port, user, password):
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(server, port, user, password)
     return client
+
 
 def resultScreen(result):
     """

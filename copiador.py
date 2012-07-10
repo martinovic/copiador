@@ -1,9 +1,12 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 import os
 import hashlib
 import sys
 sys.path.append('/var/www/copiador2')
 import templatesHtml
+import configuracion
 
 """
 Copiador de archivos para entornos
@@ -50,14 +53,20 @@ def md5Checksum(filePath):
 def walkDirs(route):
     """
         Walk in dirs of specific route
+        and remove specific entry of directory
     """
     dictFiles = {}
+    dirNoListables = configuracion.dirARemover
     for root, dirs, files in os.walk(route):
-        if root.find(".svn") < 0:
-            for f in files:
+        # Quita los directorios especificados
+        for dirARemover in dirNoListables:
+            if dirARemover in dirs:
+                dirs.remove(dirARemover)
+        for f in files:
+            # Si el archivo es un svn lo ignora
+            if f != '.svn':
                 fileWithRoute = "%s/%s" % (root, f)
                 dictFiles[md5Checksum(fileWithRoute)] = fileWithRoute
-
     return dictFiles
 
 
@@ -131,7 +140,10 @@ def generarHtml(directorio, environ):
     outputData += """</table></article></form>
     <footer>
         <center>
-        Develope by marcelo.martinovic@gmail.com - I.T.Y.O.O.L.G 2012
+        Develope by marcelo.martinovic@gmail.com - I.T.Y.O.O.L.G 2012<br>
+        Powered by Python
+        <img src="imagenes/480px-Logo_Python.png"
+            height="25px" align="absmiddle">
         </center>
     </footer>
     </body></html>"""
