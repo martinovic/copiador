@@ -8,6 +8,7 @@ body {
 h1 {
     font-family: Verdana, sans-serif;
     color: white;
+    text-shadow: rgba(0, 0, 0, 0.9) 0 2px 5px;
     }
 
 td {
@@ -82,4 +83,8 @@ select {
     -moz-box-shadow: 2px 2px 3px #666;
     -webkit-box-shadow: 2px 2px 3px #666;
     box-shadow: 2px 2px 3px #666;
+    }
+
+label {
+    color: white;
     }

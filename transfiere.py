@@ -1,12 +1,13 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import os
 import paramiko
 import sys
 sys.path.append('/var/www/copiador2')
 from scp import SCPClient
-import templatesHtml
 from cgi import parse_qs
+from jinja2 import Environment, FileSystemLoader
 
 """
 Copiador de archivos para entornos
@@ -91,36 +92,19 @@ def createSSHClient(server, port, user, password):
 def resultScreen(result):
     """
         OutPut Screen
+        Esta es la pantalla que ofrece el resultado de la copia
+        de los datos
     """
-    if result == True:
+    if result is True:
         stringResultado = "Archivos copiados de manera exitosa."
     else:
         stringResultado = "Existen Errores en la copia"
 
-    outputData = templatesHtml.head
-    outputData += """
-        <body topmargin="0" leftmargin="0">
-            <header>
-                <div>
-                    <h1>Replicador de entornos</h1>
-                </div>
-
-                <div>
-
-                </div>
-            </header>Genera el codigo HTML de la pagina
-            <article>"""
-    outputData += stringResultado
-    outputData += """
-            <br>
-            <button onclick='javascript:window.location = "/copiador"'>
-                REGRESAR AL MENU PRICIPAL
-            </button>
-            </article>
-            <footer>
-                <center>
-                Develope by marcelo.martinovic@gmail.com - I.T.Y.O.O.L.G 2012
-                </center>
-            </footer>
-            </body></html>"""
-    return outputData
+    THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+    j2_env = Environment(loader=FileSystemLoader(THIS_DIR + '/templates',
+        encoding='utf-8'))
+    outputData = j2_env.get_template('transfiere.tpl').\
+        render(resultado=stringResultado)
+    # Es importante que este en el encode utf-8 para que no
+    # existan errores de byte encode en wsgi
+    return outputData.encode("utf-8")

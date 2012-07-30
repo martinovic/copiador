@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
 import os
 import hashlib
 import sys
@@ -9,8 +8,11 @@ import StringIO
 import pycurl
 import simplejson
 sys.path.append('/var/www/copiador2')
-import templatesHtml
+#import templatesHtml
+import pickle
 import configuracion
+from jinja2 import Environment, FileSystemLoader
+
 
 """
 Copiador de archivos para entornos
@@ -32,7 +34,10 @@ def application(environ, start_response):
     """
     status = '200 OK'
     directorio = "/var/www/Portal2"
+    # Trata de usar el entorno guardado si es que existe
     entorno = ["127.0.0.1"]
+
+    filtro = ['todos']
 
     try:
         request_body_size = int(environ.get('CONTENT_LENGTH', 0))
@@ -47,8 +52,10 @@ def application(environ, start_response):
         d = parse_qs(request_body)
         entorno = d.get('entorno', 0)
         print >> environ['wsgi.errors'], entorno
+        filtro = d.get('filtro', 0)
+        print >> environ['wsgi.errors'], filtro
 
-    outputData = generarHtml(directorio, environ, entorno[0])
+    outputData = generarHtml(directorio, environ, entorno[0], filtro)
     response_headers = [('Content-type', 'text/html'),
                         ('Content-Length', str(len(outputData)))]
     start_response(status, response_headers)
@@ -70,13 +77,14 @@ def md5Checksum(filePath):
     return m.hexdigest()
 
 
-def walkDirs(environ, route, entorno):
+def walkDirs(environ, route, entorno, filtro):
     """
         Walk in dirs of specific route
         and remove specific entry of directory
     """
     dictFiles = {}
-    condicion = "Nuevo"
+    condicionHtml = "Nuevo"
+    condicionFile = ""
     firmasRemotas, archivosRemotos = recuperaFirmas(peticionJson(entorno,
         environ))
     dirNoListables = configuracion.dirNoListables
@@ -91,103 +99,57 @@ def walkDirs(environ, route, entorno):
                 fileWithRoute = "%s/%s" % (root, f)
                 chkSum = md5Checksum(fileWithRoute)
                 if chkSum in firmasRemotas:
-                    condicion = "<font color='blue'>IGUALES</font>"
+                    condicionHtml = "<font color='blue'>IGUALES</font>"
+                    condicionFile = "todos"
+                    if filtro[0] == condicionFile:
+                        dictFiles[chkSum] = [condicionHtml, fileWithRoute]
                 else:
                     if fileWithRoute in archivosRemotos:
-                        condicion = "<font color='red'>UPDATE</font>"
+                        condicionHtml = "<font color='red'>UPDATE</font>"
+                        condicionFile = "difieren"
+                        if filtro[0] == condicionFile:
+                            dictFiles[chkSum] = [condicionHtml, fileWithRoute]
                     else:
-                        condicion = "<font color='green'>NUEVO</font>"
-                dictFiles[chkSum] = [condicion, fileWithRoute]
-
+                        condicionHtml = "<font color='green'>NUEVO</font>"
+                        condicionFile = "nuevos"
+                        if filtro[0] == condicionFile:
+                            dictFiles[chkSum] = [condicionHtml, fileWithRoute]
+                if filtro[0] == 'todos':
+                    dictFiles[chkSum] = [condicionHtml, fileWithRoute]
     return dictFiles
 
 
-def generarHtml(directorio, environ, entorno):
+def generarHtml(directorio, environ, entorno, filtro):
     """
-        Generate HTML5 Code of page
-        TODO: see the best method to use temples
+        Generate HTML5 Code of page with jinja2 templates
+        :param directorio: directorio
+        :param environ: environment
+        :param entorno: entorno de destino
     """
-    outputData = templatesHtml.head
-    outputData += """
-        <body topmargin="0" leftmargin="0">
-            <header>
-                <div>
-                    <h1>Replicador de entornos</h1>
-                </div>
-                <!-- botones de acciones -->
-                <div>
-                    <form action="transfiere" method="post"
-                        name="form1" id="form1">
-                        <input type='submit'
-                            value='Iniciar la copia' name='submit'>
-                        <input type='reset'
-                            value='Cancelar la seleccion' name='reset'>
-
-                        <label for="entorno" style='margin-left:200px;'>
-                            Entornos disponibles
-                        </label>
-                        <select name='entorno'>
-                            <option
-                                value='127.0.0.1'>Localhost</option>
-                            <option
-                                value='192.168.0.202'>Desarrollo</option>
-                            <option
-                                value='192.168.0.244'>Pre Productivo</option>
-                        </select>
-                        <input type='submit'
-                            value='Seleccionar entorno'
-                            name='entornoBtn'
-                            onclick='submitirFormEntorno();'>
-
-                        <label for="filtro"  style='margin-left:50px;'>
-                            Filtros disponibles
-                        </label>
-                        <select name='filtro'>
-                            <option
-                                value='todos'>Todos</option>
-                            <option
-                                value='nuevos'>Nuevos</option>
-                            <option
-                                value='difieren'>Actualizables</option>
-                        </select>
-                        <input type='submit'
-                            value='Filtra' name='filtarBtn'>
-
-                </div>
-            </header>Genera el codigo HTML de la pagina
-            <article>
-            <table>
-                <tr>
-                    <th>Firma origen</th>
-                    <th>Condicion</th>
-                    <th>Archivo</th>
-                </tr>"""
-
-    diccionarioFiles_or = [x for x in \
-        walkDirs(environ, directorio, entorno).iteritems()]
+    listDatos = []
+    dictDatos = {}
+    diccionarioFiles_or = [x for x in
+        walkDirs(environ, directorio, entorno, filtro).iteritems()]
     diccionarioFiles_or.sort(key=lambda x: x[1])
+    # Genera un diccionario con los datos
+    # y luego lo agrega a una lista
     for codigo, files in diccionarioFiles_or:
-        td = """<tr>
-                    <td>%30s</td>
-                    <td>%s</td>
-                    <td>
-                        <input type="checkbox"
-                        name="filename" value="%s" > %s
-                    </td>
-                </tr>"""
-        outputData += (td % (codigo, files[0], files[1], files[1]))
+        dictDatos["firma_md5"] = str(codigo)
+        dictDatos["condicion"] = str(files[0])
+        dictDatos["archivo"] = str(files[1])
+        listDatos.append(dictDatos)
+        dictDatos = {}
 
-    outputData += """</table></article></form>
-    <footer>
-        <center>
-        Develope by marcelo.martinovic@gmail.com - I.T.Y.O.O.L.G 2012<br>
-        Powered by Python
-        <img src="imagenes/480px-Logo_Python.png"
-            height="25px" align="absmiddle">
-        </center>
-    </footer>
-    </body></html>"""
-    return outputData
+    THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+    j2_env = Environment(loader=FileSystemLoader(THIS_DIR + '/templates',
+        encoding='utf-8'))
+
+    outputData = j2_env.get_template('principal.tpl').render(lista=listDatos,
+        entornoSeleccionado=entorno,
+        filtroSeleccionado=filtro[0])
+    # Es importante que este en el encode utf-8 para que no
+    # existan errores de byte encode en wsgi
+    return outputData.encode("utf-8")
 
 
 def peticionJson(entorno, environ):
@@ -201,12 +163,12 @@ def peticionJson(entorno, environ):
 
     largo = len(peticion)
     contentLenght = "Content-length: %s" % largo
-    header = ["Content-type: application/json; " \
+    header = ["Content-type: application/json; "
         + "charset=UTF-8", contentLenght, "Accept: application/json"]
     c = pycurl.Curl()
     url = protocolo + '://' + server + ':' + port + '/recupera'
 
-    print >> environ['wsgi.errors'], url
+    #print >> environ['wsgi.errors'], url
 
     b = StringIO.StringIO()
     c.setopt(c.URL, url)
