@@ -8,8 +8,6 @@ import StringIO
 import pycurl
 import simplejson
 sys.path.append('/var/www/copiador2')
-#import templatesHtml
-import pickle
 import configuracion
 from jinja2 import Environment, FileSystemLoader
 
@@ -167,8 +165,6 @@ def peticionJson(entorno, environ):
         + "charset=UTF-8", contentLenght, "Accept: application/json"]
     c = pycurl.Curl()
     url = protocolo + '://' + server + ':' + port + '/recupera'
-
-    #print >> environ['wsgi.errors'], url
 
     b = StringIO.StringIO()
     c.setopt(c.URL, url)
