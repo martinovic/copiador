@@ -40,7 +40,8 @@ def readFilesToCopy(environ):
         Read the list of files top copy
     """
     outputData = ""
-
+    archivosCopiadosCorrecto = []
+    archivosCopiadosError = []
     try:
         request_body_size = int(environ.get('CONTENT_LENGTH', 0))
     except (ValueError):
@@ -54,18 +55,19 @@ def readFilesToCopy(environ):
 
     archivos = d.get('filename', [])  # Returns a list filename to copy
 
-    for listaCopiados in archivos:
-        outputData += listaCopiados + "<br>"
+    # Inicia la copia de cada archivo via ssh
+    for source in archivos:
+        target = source
+        try:
+            copyFilesWithSSH(source, target)
+            archivosCopiadosCorrecto.append(source)
+        except:
+            archivosCopiadosError.append(source)
 
-    sourceTest = "/var/www/Portal2/SQL_SRC/portal_sql.txt"
-    try:
-        copyFilesWithSSH(sourceTest)
-        return resultScreen(True)
-    except:
-        return resultScreen(False)
+    return resultScreen(True, archivosCopiadosCorrecto, archivosCopiadosError)
 
 
-def copyFilesWithSSH(source):
+def copyFilesWithSSH(source, target):
     """
         Copy files using SSH protocol
     """
@@ -75,7 +77,8 @@ def copyFilesWithSSH(source):
     password = "chicago42195"
     ssh = createSSHClient(server, port, user, password)
     scp = SCPClient(ssh.get_transport())
-    scp.put(source, "/")
+    #scp.put(source, "/")
+    scp.put(source, target)
 
 
 def createSSHClient(server, port, user, password):
@@ -89,7 +92,7 @@ def createSSHClient(server, port, user, password):
     return client
 
 
-def resultScreen(result):
+def resultScreen(result, archivosCopiadosCorrecto, archivosCopiadosError):
     """
         OutPut Screen
         Esta es la pantalla que ofrece el resultado de la copia
@@ -104,7 +107,9 @@ def resultScreen(result):
     j2_env = Environment(loader=FileSystemLoader(THIS_DIR + '/templates',
         encoding='utf-8'))
     outputData = j2_env.get_template('transfiere.tpl').\
-        render(resultado=stringResultado)
+        render(resultado=stringResultado,
+            archivosCorrecto=archivosCopiadosCorrecto,
+            archivosError=archivosCopiadosError)
     # Es importante que este en el encode utf-8 para que no
     # existan errores de byte encode en wsgi
     return outputData.encode("utf-8")
