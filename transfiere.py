@@ -19,8 +19,13 @@ Copiador de archivos para entornos
     :note: Esta es una version para ser ejecutada en python 2.7+ no funciona en
             python3 por los cambios de mejoras del lenguaje
 """
-__author__ = "marcelo martinovic"
-__date__ = "$09/04/2012 16:53:44$"
+__prj__ = 'Copiador'
+__version__ = '1.0'
+__license__ = 'GNU General Public License v3'
+__author__ = 'marcelo'
+__email__ = 'marcelo.martinovic@gmail.com'
+__url__ = ''
+__date__ = '2012/08/08'
 
 
 def application(environ, start_response):
