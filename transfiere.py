@@ -36,10 +36,10 @@ def application(environ, start_response):
 
 
 def readFilesToCopy(environ):
-    """
+    """transfiere
         Read the list of files top copy
     """
-    outputData = ""
+
     archivosCopiadosCorrecto = []
     archivosCopiadosError = []
     try:
@@ -54,12 +54,13 @@ def readFilesToCopy(environ):
     d = parse_qs(request_body)
 
     archivos = d.get('filename', [])  # Returns a list filename to copy
-
+    entorno = d.get('entorno', 0)
+    print >> environ['wsgi.errors'], "copiando a: %s " % str(entorno[0])
     # Inicia la copia de cada archivo via ssh
     for source in archivos:
         target = source
         try:
-            copyFilesWithSSH(source, target)
+            copyFilesWithSSH(source, target, entorno)
             archivosCopiadosCorrecto.append(source)
         except:
             archivosCopiadosError.append(source)
@@ -67,11 +68,12 @@ def readFilesToCopy(environ):
     return resultScreen(True, archivosCopiadosCorrecto, archivosCopiadosError)
 
 
-def copyFilesWithSSH(source, target):
+def copyFilesWithSSH(source, target, entorno):
     """
         Copy files using SSH protocol
     """
-    server = "192.168.0.202"
+    #server = "192.168.0.202"
+    server = entorno[0]
     port = 22
     user = "root"
     password = "chicago42195"

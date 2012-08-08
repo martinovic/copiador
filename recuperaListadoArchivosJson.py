@@ -6,6 +6,7 @@ import hashlib
 import sys
 sys.path.append('/var/www/copiador2')
 import configuracion
+import time
 
 """
 Copiador de archivos para entornos
@@ -77,7 +78,12 @@ def generarJson(directorio, environ):
     diccionarioFiles_or = [x for x in walkDirs(directorio).iteritems()]
     diccionarioFiles_or.sort(key=lambda x: x[1])
     for codigo, files in diccionarioFiles_or:
-        json += '{"codigo": "%s", "archivo": "%s"},' % (codigo, files)
+        created = time.strftime(
+                    "%Y-%m-%d %H:%M:%S",
+                    time.gmtime(os.path.getmtime(files))
+                    )
+        json += '{"codigo": "%s", "archivo": "%s", "creado": "%s"},' % \
+            (codigo, files, created)
 
     output = '{"lista":[%s]}' % json[:-1]
     return output

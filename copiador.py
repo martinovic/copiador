@@ -10,7 +10,7 @@ import simplejson
 sys.path.append('/var/www/copiador2')
 import configuracion
 from jinja2 import Environment, FileSystemLoader
-
+import time
 
 """
 Copiador de archivos para entornos
@@ -35,7 +35,7 @@ def application(environ, start_response):
     # Trata de usar el entorno guardado si es que existe
     entorno = ["127.0.0.1"]
 
-    filtro = ['todos']
+    filtro = ['difierenynuevos']
 
     try:
         request_body_size = int(environ.get('CONTENT_LENGTH', 0))
@@ -83,37 +83,89 @@ def walkDirs(environ, route, entorno, filtro):
     dictFiles = {}
     condicionHtml = "Nuevo"
     condicionFile = ""
-    firmasRemotas, archivosRemotos = recuperaFirmas(peticionJson(entorno,
-        environ))
+
+    firmasRemotas, archivosRemotos, fechas = recuperaFirmas(
+        peticionJson(entorno, environ))
     dirNoListables = configuracion.dirNoListables
     for root, dirs, files in os.walk(route):
         # Quita los directorios especificados
         for dirARemover in dirNoListables:
             if dirARemover in dirs:
                 dirs.remove(dirARemover)
+
         for f in files:
             # Si el archivo es un svn lo ignora
             if f != '.svn':
                 fileWithRoute = "%s/%s" % (root, f)
+                createdLocal = time.strftime("%Y-%m-%d %H:%M:%S",
+                    time.gmtime(os.path.getmtime(fileWithRoute)))
                 chkSum = md5Checksum(fileWithRoute)
                 if chkSum in firmasRemotas:
                     condicionHtml = "<font color='blue'>IGUALES</font>"
                     condicionFile = "todos"
                     if filtro[0] == condicionFile:
-                        dictFiles[chkSum] = [condicionHtml, fileWithRoute]
+                        try:
+                            fechaRemota = fechas[fileWithRoute]
+                        except:
+                            fechaRemota = ""
+                        dictFiles[chkSum] = [condicionHtml,
+                            fileWithRoute,
+                            createdLocal,
+                            fechaRemota]
                 else:
                     if fileWithRoute in archivosRemotos:
                         condicionHtml = "<font color='red'>UPDATE</font>"
                         condicionFile = "difieren"
                         if filtro[0] == condicionFile:
-                            dictFiles[chkSum] = [condicionHtml, fileWithRoute]
+                            try:
+                                fechaRemota = fechas[fileWithRoute]
+                            except:
+                                fechaRemota = ""
+                            dictFiles[chkSum] = [condicionHtml,
+                                fileWithRoute,
+                                createdLocal,
+                                fechaRemota]
+                        if filtro[0] == 'difierenynuevos':
+                            try:
+                                fechaRemota = fechas[fileWithRoute]
+                            except:
+                                fechaRemota = ""
+                            dictFiles[chkSum] = [condicionHtml,
+                                fileWithRoute,
+                                createdLocal,
+                                fechaRemota]
+
                     else:
                         condicionHtml = "<font color='green'>NUEVO</font>"
                         condicionFile = "nuevos"
                         if filtro[0] == condicionFile:
-                            dictFiles[chkSum] = [condicionHtml, fileWithRoute]
+                            try:
+                                fechaRemota = fechas[fileWithRoute]
+                            except:
+                                fechaRemota = ""
+                            dictFiles[chkSum] = [condicionHtml,
+                                fileWithRoute,
+                                createdLocal,
+                                fechaRemota]
+                        if filtro[0] == 'difierenynuevos':
+                            try:
+                                fechaRemota = fechas[fileWithRoute]
+                            except:
+                                fechaRemota = ""
+                            dictFiles[chkSum] = [condicionHtml,
+                                fileWithRoute,
+                                createdLocal,
+                                fechaRemota]
                 if filtro[0] == 'todos':
-                    dictFiles[chkSum] = [condicionHtml, fileWithRoute]
+                    try:
+
+                        fechaRemota = fechas[fileWithRoute]
+                    except:
+                        fechaRemota = ""
+                    dictFiles[chkSum] = [condicionHtml,
+                        fileWithRoute,
+                        createdLocal,
+                        fechaRemota]
     return dictFiles
 
 
@@ -124,30 +176,63 @@ def generarHtml(directorio, environ, entorno, filtro):
         :param environ: environment
         :param entorno: entorno de destino
     """
-    listDatos = []
-    dictDatos = {}
-    diccionarioFiles_or = [x for x in
-        walkDirs(environ, directorio, entorno, filtro).iteritems()]
-    diccionarioFiles_or.sort(key=lambda x: x[1])
-    # Genera un diccionario con los datos
-    # y luego lo agrega a una lista
-    for codigo, files in diccionarioFiles_or:
-        dictDatos["firma_md5"] = str(codigo)
-        dictDatos["condicion"] = str(files[0])
-        dictDatos["archivo"] = str(files[1])
-        listDatos.append(dictDatos)
-        dictDatos = {}
-
     THIS_DIR = os.path.dirname(os.path.abspath(__file__))
     j2_env = Environment(loader=FileSystemLoader(THIS_DIR + '/templates',
         encoding='utf-8'))
+    listDatos = []
+    dictDatos = {}
 
-    outputData = j2_env.get_template('principal.tpl').render(lista=listDatos,
+    # Actua segun el filtro
+    if filtro[0] == 'limpieza':
+        listaFaltantes = noExistenLocalmente(entorno, environ)
+        for files in listaFaltantes:
+            dictDatos["archivo"] = str(files)
+            listDatos.append(dictDatos)
+            dictDatos = {}
+        templateToUse = 'limpieza.tpl'
+    else:
+        diccionarioFiles_or = [x for x in
+            walkDirs(environ, directorio, entorno, filtro).iteritems()]
+        diccionarioFiles_or.sort(key=lambda x: x[1])
+        # Genera un diccionario con los datos
+        # y luego lo agrega a una lista
+        for codigo, files in diccionarioFiles_or:
+            dictDatos["firma_md5"] = str(codigo)
+            dictDatos["condicion"] = str(files[0])
+            dictDatos["archivo"] = str(files[1])
+            dictDatos["fechaLocal"] = str(files[2])
+            dictDatos["fechaRemoto"] = str(files[3])
+            listDatos.append(dictDatos)
+            dictDatos = {}
+        templateToUse = 'principal.tpl'
+
+    # Match de template con valores
+    outputData = j2_env.get_template(templateToUse).render(lista=listDatos,
         entornoSeleccionado=entorno,
         filtroSeleccionado=filtro[0])
     # Es importante que este en el encode utf-8 para que no
     # existan errores de byte encode en wsgi
     return outputData.encode("utf-8")
+
+
+def noExistenLocalmente(entorno, environ):
+    """
+        Recupera la lista de archivos que existen remotamente pero no de
+        manera local
+    """
+    listaFaltantes = []
+    listaExtOmitidas = ['.BCP',
+        '.csv',
+        '.xls',
+        '.log',
+        '.tmp']
+    firmasRemotas, archivosRemotos, fechas = recuperaFirmas(
+        peticionJson(entorno, environ))
+    for archivos in archivosRemotos:
+        if archivos[-4:] not in listaExtOmitidas:
+            if not os.path.exists(archivos):
+                listaFaltantes.append(archivos)
+    return listaFaltantes
 
 
 def peticionJson(entorno, environ):
@@ -198,7 +283,9 @@ def recuperaFirmas(jsonSource):
     """
     firmas = []
     archivos = []
+    fechas = {}
     for v in jsonSource:
         firmas.append(v['codigo'])
         archivos.append(v['archivo'])
-    return firmas, archivos
+        fechas[v['archivo']] = v['creado']
+    return firmas, archivos, fechas
