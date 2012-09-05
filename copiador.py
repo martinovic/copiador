@@ -113,6 +113,7 @@ def walkDirs(environ, route, entorno, filtro):
                             fechaRemota = fechas[fileWithRoute]
                         except:
                             fechaRemota = ""
+                            
                         dictFiles[chkSum] = [condicionHtml,
                             fileWithRoute,
                             createdLocal,
